@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import javax.sql.rowset.serial.SerialException;
@@ -17,6 +18,9 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import java.io.PrintWriter;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -26,12 +30,23 @@ import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.ServletContext;
 import mesAnnotations.AnnotationControleur;
+import mesAnnotations.AnnotationGet;
+import mg.itu.prom16.Mapping;
 
 @AnnotationControleur(value="Annotation sur ma classe")
 public class FrontServlet extends HttpServlet
 {
     List<String> liste;
-    
+    HashMap<String,Mapping> mappings;
+
+    public HashMap<String, Mapping> getMappings() {
+        return mappings;
+    }
+
+    public void setMappings(HashMap<String, Mapping> mappings) {
+        this.mappings = mappings;
+    }
+
     public List<String> getListe() {
         return liste;
     }
@@ -54,39 +69,43 @@ public class FrontServlet extends HttpServlet
 
     protected void processRequest(HttpServletRequest request,HttpServletResponse response)throws ServletException,IOException
     {
-        response.setContentType("text/html");
-        try(PrintWriter out=response.getWriter())
-        {
-            String requestUrl = request.getRequestURL().toString();
-            String queryString = request.getQueryString();
-            String fullUrl = (queryString == null) ? requestUrl : requestUrl + "?" + queryString;
-
-            out.println(fullUrl);
-
-            List<String> ctrl=this.getListe();
-            out.println(ctrl.size());
-
-            for (int i = 0; i < ctrl.size(); i++) 
+            response.setContentType("text/html");
+            try (PrintWriter out = response.getWriter()) 
             {
-                out.println(ctrl.get(i));
+                String contextPath = request.getContextPath();
+                String servletPath = request.getServletPath();
+                String pathInfo = request.getPathInfo();
+                String queryString = request.getQueryString();
+        
+                StringBuilder fullUrl = new StringBuilder();
+                if (servletPath != null) {
+                    fullUrl.append(servletPath);
+                }
+                if (pathInfo != null) {
+                    fullUrl.append(pathInfo);
+                }
+                if (queryString != null) {
+                    fullUrl.append("?").append(queryString);
+                }
+        
+                Mapping mapping = this.getMappings().get(fullUrl.toString());
+                out.println("Methode: "+mapping.getMethodName()+"<br>");
+                out.println("ClassName: "+mapping.getClassName());
+            } 
+            catch (Exception e) 
+            {
+                e.printStackTrace();
             }
-        }
-        catch(Exception e)
-        {
-            e.printStackTrace();
-        }
+        
     }
 
     @Override
     public void init() throws ServletException
     {
-        ServletContext context=getServletContext();
-        String path=context.getRealPath("/");
-        File all=new File(path+"WEB-INF");
         try
         {
-            List<String> ctrl=FrontServlet.getListeControleur(all);
-            this.setListe(ctrl);
+           HashMap<String,Mapping> map=this.scanneMapping();
+           this.setMappings(map);
         }
         catch(Exception e)
         {
@@ -128,7 +147,7 @@ public class FrontServlet extends HttpServlet
                 clazz=Class.forName(pathClass);
                 if(clazz.isAnnotationPresent(AnnotationControleur.class))
                 {
-                    ClassAnnoter.add(allClass.get(i).getName().split("[.]")[0]);
+                    ClassAnnoter.add(pathClass);
                 }
             }
             catch(Exception e)
@@ -162,5 +181,43 @@ public class FrontServlet extends HttpServlet
         String value=((Node) element).getTextContent();
 
         return value;
+    }
+
+    public HashMap<String,Mapping> scanneMapping()throws ServletException
+    {
+        HashMap<String,Mapping> map=new HashMap<>();
+        ServletContext context=getServletContext();
+        String path=context.getRealPath("/");
+        File all=new File(path+"WEB-INF");
+        try
+        {
+            List<String> ctrl=FrontServlet.getListeControleur(all);
+            for (int i = 0; i < ctrl.size(); i++) 
+            {
+                String clazz=ctrl.get(i);
+                Class<?> clazzs=null;
+                clazzs=Class.forName(clazz);
+                Object instance = clazzs.getDeclaredConstructor().newInstance();
+                Method[] tabmethode=instance.getClass().getDeclaredMethods();
+
+                for (int j = 0; j < tabmethode.length; j++) 
+                {
+                    if(tabmethode[j].isAnnotationPresent(AnnotationGet.class))
+                    {
+                        AnnotationGet annot=tabmethode[j].getAnnotation(AnnotationGet.class);
+                        String url=annot.url();
+                        Mapping mapping=new Mapping();
+                        mapping.setMethodName(tabmethode[j].getName());
+                        mapping.setClassName(ctrl.get(i));
+                        map.put(url, mapping);
+                    }   
+                }
+            }
+        }
+        catch(Exception e)
+        {
+            e.printStackTrace();
+        }
+        return map;
     }
 }
