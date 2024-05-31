@@ -89,15 +89,19 @@ public class FrontServlet extends HttpServlet
                 }
         
                 Mapping mapping = this.getMappings().get(fullUrl.toString());
-                out.println("Methode: "+mapping.getMethodName()+"<br>");
-                out.println("ClassName: "+mapping.getClassName());
+                Class<?>clazz=Class.forName(mapping.getClassName());
+                Object controleur = clazz.getDeclaredConstructor().newInstance();
+                Method methode=controleur.getClass().getMethod(mapping.getMethodName());
+                methode.setAccessible(true);
+                String retour=(String)methode.invoke(controleur);
+                out.print(retour);
             } 
             catch (Exception e) 
             {
                 e.printStackTrace();
             }
-        
     }
+
 
     @Override
     public void init() throws ServletException
