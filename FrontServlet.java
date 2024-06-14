@@ -7,6 +7,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
+import modelView.*;
 
 import javax.sql.rowset.serial.SerialException;
 import javax.xml.parsers.DocumentBuilder;
@@ -89,14 +91,42 @@ public class FrontServlet extends HttpServlet
                 }
         
                 Mapping mapping = this.getMappings().get(fullUrl.toString());
-                out.println("Methode: "+mapping.getMethodName()+"<br>");
-                out.println("ClassName: "+mapping.getClassName());
+                Class<?> clazz=Class.forName(mapping.getClassName());
+                Method method = clazz.getMethod(mapping.getMethodName());
+                method.setAccessible(true);
+                Object instance = clazz.getDeclaredConstructor().newInstance();
+                Object result = method.invoke(instance);
+
+                if (result instanceof String) 
+                {
+                    String resultString = (String) result;
+                    out.print(resultString);
+                } 
+                else if (result instanceof ModelView) 
+                {
+                    ModelView modelView = (ModelView) result;
+                    String url=modelView.getUrl();
+                    HashMap<String,Object> data=modelView.getData();
+
+                    Set<String> keys = data.keySet();
+                    for (int i = 0; i < keys.size(); i++) 
+                    {
+                        String key = (String) keys.toArray()[i];
+                        Object value = data.get(key);
+                        request.setAttribute(key,value);
+                    }
+                    RequestDispatcher dispatch=request.getRequestDispatcher(url);
+                    dispatch.forward(request,response);
+                } 
+                else 
+                {
+                    System.out.println("La méthode a renvoyé un type inattendu : " + result.getClass().getName());
+                }
             } 
             catch (Exception e) 
             {
                 e.printStackTrace();
             }
-        
     }
 
     @Override
@@ -179,7 +209,6 @@ public class FrontServlet extends HttpServlet
         NodeList balise=document.getElementsByTagName("packageCtrl");
         Element element=(Element)balise.item(0);
         String value=((Node) element).getTextContent();
-
         return value;
     }
 
