@@ -160,7 +160,7 @@ public class FrontServlet extends HttpServlet
         } 
         else
         {
-            throw new Exception("Le type de retour doit être String ou ModelView");
+            throw new Exception("Le type de retour doit sêtre String ou ModelView");
         }
 
     }
@@ -170,7 +170,7 @@ public class FrontServlet extends HttpServlet
         HashMap<String,Mapping> mapping=this.getMappings();
         if(mapping==null)
         {
-            throw new Exception("Cette url existe déjà");
+            throw new Exception("URL en doublant");
         }
     }
 
@@ -245,7 +245,6 @@ public class FrontServlet extends HttpServlet
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document document = builder.parse(path.getPath() + "/web.xml");
 
-        // Vérifier si le noeud "packageCtrl" existe
         NodeList nodeList = document.getElementsByTagName("packageCtrl");
         if (nodeList.getLength() == 0) {
             throw new Exception("Le tag 'packageCtrl' n'a pas été trouvé dans le fichier web.xml.");
@@ -253,8 +252,7 @@ public class FrontServlet extends HttpServlet
 
         Element element = (Element) nodeList.item(0);
 
-        // Récupérer et vérifier la valeur du package
-        Node node = element.getFirstChild(); // Assumer que le premier enfant est le texte du package
+        Node node = element.getFirstChild(); 
         if (node!= null &&!node.getTextContent().trim().isEmpty()) 
         {
             return node.getTextContent().trim();
@@ -264,8 +262,7 @@ public class FrontServlet extends HttpServlet
             throw new Exception("La valeur du package est vide ou n'existe pas.");
         }
     }
-        // return value;
-    // }
+
 
     public HashMap<String,Mapping> scanneMapping()throws ServletException,Exception
     {
@@ -310,7 +307,7 @@ public class FrontServlet extends HttpServlet
             {
                 if(liste.get(i).equals(liste.get(j)) && i!=j)
                 {
-                    throw new Exception("url déjà existante"+liste.get(j));
+                    throw new Exception("URL en doublant"+liste.get(j));
                 }
             }    
         }
