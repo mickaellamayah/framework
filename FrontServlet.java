@@ -72,7 +72,8 @@ public class FrontServlet extends HttpServlet
     protected void processRequest(HttpServletRequest request,HttpServletResponse response)throws ServletException,IOException
     {
             response.setContentType("text/html");
-            try (PrintWriter out = response.getWriter()) 
+            PrintWriter out = response.getWriter();
+            try
             {
                 String contextPath = request.getContextPath();
                 String servletPath = request.getServletPath();
@@ -89,14 +90,10 @@ public class FrontServlet extends HttpServlet
                 if (queryString != null) {
                     fullUrl.append("?").append(queryString);
                 }
+                this.verifDoublant(fullUrl.toString());
         
                 Mapping mapping = this.getMappings().get(fullUrl.toString());
-                Class<?> clazz=Class.forName(mapping.getClassName());
-                Method method = clazz.getMethod(mapping.getMethodName());
-                method.setAccessible(true);
-                Object instance = clazz.getDeclaredConstructor().newInstance();
-                Object result = method.invoke(instance);
-
+                Object result=this.minvoke(mapping);
                 if (result instanceof String) 
                 {
                     String resultString = (String) result;
@@ -125,10 +122,10 @@ public class FrontServlet extends HttpServlet
             } 
             catch (Exception e) 
             {
+                out.println(e.getMessage());
                 e.printStackTrace();
             }
     }
-
 
     @Override
     public void init() throws ServletException
@@ -141,6 +138,38 @@ public class FrontServlet extends HttpServlet
         catch(Exception e)
         {
             e.printStackTrace();
+        }
+    }
+
+    public Object minvoke(Mapping map)throws Exception
+    {
+        if(map==null)
+        {
+            throw new Exception("Url introuvable");
+        }
+
+        Class<?> clazz=Class.forName(map.getClassName());
+        Method method = clazz.getMethod(map.getMethodName());
+        method.setAccessible(true);
+        Object instance = clazz.getDeclaredConstructor().newInstance();
+        Object result = method.invoke(instance);
+        if (result instanceof String || result instanceof ModelView) 
+        {
+            return result;
+        } 
+        else
+        {
+            throw new Exception("Le type de retour doit sêtre String ou ModelView");
+        }
+
+    }
+
+    public void verifDoublant(String url)throws Exception
+    {
+        HashMap<String,Mapping> mapping=this.getMappings();
+        if(mapping==null)
+        {
+            throw new Exception("URL en doublant");
         }
     }
 
@@ -204,17 +233,39 @@ public class FrontServlet extends HttpServlet
 
     public static String getPackage(File path)throws Exception
     {
-        DocumentBuilderFactory factory=DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder=factory.newDocumentBuilder();
-        Document document=builder.parse(path.getPath()+"/"+"web.xml");
-        NodeList balise=document.getElementsByTagName("packageCtrl");
-        Element element=(Element)balise.item(0);
-        String value=((Node) element).getTextContent();
-        return value;
+        // DocumentBuilderFactory factory=DocumentBuilderFactory.newInstance();
+        // DocumentBuilder builder=factory.newDocumentBuilder();
+        // Document document=builder.parse(path.getPath()+"/"+"web.xml");
+        // NodeList balise=document.getElementsByTagName("packageCtrl");
+        // Element element=(Element)balise.item(0);
+        // String value=((Node) element).getTextContent();
+
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(path.getPath() + "/web.xml");
+
+        NodeList nodeList = document.getElementsByTagName("packageCtrl");
+        if (nodeList.getLength() == 0) {
+            throw new Exception("Le tag 'packageCtrl' n'a pas été trouvé dans le fichier web.xml.");
+        }
+
+        Element element = (Element) nodeList.item(0);
+
+        Node node = element.getFirstChild(); 
+        if (node!= null &&!node.getTextContent().trim().isEmpty()) 
+        {
+            return node.getTextContent().trim();
+        } 
+        else 
+        {
+            throw new Exception("La valeur du package est vide ou n'existe pas.");
+        }
     }
 
-    public HashMap<String,Mapping> scanneMapping()throws ServletException
+
+    public HashMap<String,Mapping> scanneMapping()throws ServletException,Exception
     {
+        List<String> liste=new ArrayList<>();
         HashMap<String,Mapping> map=new HashMap<>();
         ServletContext context=getServletContext();
         String path=context.getRealPath("/");
@@ -236,6 +287,7 @@ public class FrontServlet extends HttpServlet
                     {
                         AnnotationGet annot=tabmethode[j].getAnnotation(AnnotationGet.class);
                         String url=annot.url();
+                        liste.add(url);
                         Mapping mapping=new Mapping();
                         mapping.setMethodName(tabmethode[j].getName());
                         mapping.setClassName(ctrl.get(i));
@@ -247,6 +299,16 @@ public class FrontServlet extends HttpServlet
         catch(Exception e)
         {
             e.printStackTrace();
+        }
+        for (int i = 0; i < liste.size(); i++) 
+        {
+            for (int j = 0; j < liste.size(); j++) 
+            {
+                if(liste.get(i).equals(liste.get(j)) && i!=j)
+                {
+                    throw new Exception("URL en doublant"+liste.get(j));
+                }
+            }    
         }
         return map;
     }
