@@ -94,7 +94,6 @@ public class FrontServlet extends HttpServlet
         
                 Mapping mapping = this.getMappings().get(fullUrl.toString());
                 Object result=this.minvoke(mapping);
-
                 if (result instanceof String) 
                 {
                     String resultString = (String) result;
@@ -261,7 +260,6 @@ public class FrontServlet extends HttpServlet
         {
             throw new Exception("La valeur du package est vide ou n'existe pas.");
         }
-        
     }
 
 
