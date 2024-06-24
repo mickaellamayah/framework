@@ -22,6 +22,8 @@ import org.w3c.dom.NodeList;
 import java.io.PrintWriter;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.net.http.HttpRequest;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
@@ -33,6 +35,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.ServletContext;
 import mesAnnotations.AnnotationControleur;
 import mesAnnotations.AnnotationGet;
+import mesAnnotations.Param;
 import mg.itu.prom16.Mapping;
 
 @AnnotationControleur(value="Annotation sur ma classe")
@@ -93,7 +96,8 @@ public class FrontServlet extends HttpServlet
                 this.verifDoublant(fullUrl.toString());
         
                 Mapping mapping = this.getMappings().get(fullUrl.toString());
-                Object result=this.minvoke(mapping);
+                Object result=this.minvoke(mapping,request);
+
                 if (result instanceof String) 
                 {
                     String resultString = (String) result;
@@ -141,7 +145,7 @@ public class FrontServlet extends HttpServlet
         }
     }
 
-    public Object minvoke(Mapping map)throws Exception
+    public Object minvoke(Mapping map,HttpServletRequest request)throws Exception
     {
         if(map==null)
         {
@@ -149,10 +153,32 @@ public class FrontServlet extends HttpServlet
         }
 
         Class<?> clazz=Class.forName(map.getClassName());
-        Method method = clazz.getMethod(map.getMethodName());
+        Object instance=clazz.getDeclaredConstructor().newInstance();
+        Method[] allmethods=instance.getClass().getDeclaredMethods();
+        Method method = null;
+
+        for (int i = 0; i < allmethods.length; i++) 
+        {
+            if(allmethods[i].getName().equals(map.getMethodName()))
+            {
+                method=allmethods[i];
+            }
+        }
+        Parameter[] params=method.getParameters();
+        Object[] arguments=new Object[params.length];
+
+        for (int i = 0; i < params.length; i++) 
+        {
+            if(params[i].isAnnotationPresent(Param.class))
+            {
+                Param param=params[i].getAnnotation(Param.class);
+                String nom=param.nom();
+                String value=request.getParameter(nom);
+                arguments[i]=value;
+            }
+        }
         method.setAccessible(true);
-        Object instance = clazz.getDeclaredConstructor().newInstance();
-        Object result = method.invoke(instance);
+        Object result = method.invoke(instance,arguments);
         if (result instanceof String || result instanceof ModelView) 
         {
             return result;
@@ -260,6 +286,7 @@ public class FrontServlet extends HttpServlet
         {
             throw new Exception("La valeur du package est vide ou n'existe pas.");
         }
+
     }
 
 
