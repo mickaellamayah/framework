@@ -36,6 +36,7 @@ import jakarta.servlet.ServletContext;
 import mesAnnotations.AnnotationControleur;
 import mesAnnotations.AnnotationGet;
 import mesAnnotations.ParamObject;
+import mesAnnotations.Param;
 import mg.itu.prom16.Mapping;
 
 @AnnotationControleur(value="Annotation sur ma classe")
@@ -96,7 +97,7 @@ public class FrontServlet extends HttpServlet
                 this.verifDoublant(fullUrl.toString());
         
                 Mapping mapping = this.getMappings().get(fullUrl.toString());
-                Object result=this.minvoke(mapping);
+                Object result=this.minvoke(mapping,request);
                 if (result instanceof String) 
                 {
                     String resultString = (String) result;
