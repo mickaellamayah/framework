@@ -21,7 +21,9 @@ import org.w3c.dom.NodeList;
 
 import java.io.PrintWriter;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
@@ -33,6 +35,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.ServletContext;
 import mesAnnotations.AnnotationControleur;
 import mesAnnotations.AnnotationGet;
+import mesAnnotations.ParamObject;
 import mg.itu.prom16.Mapping;
 
 @AnnotationControleur(value="Annotation sur ma classe")
@@ -141,7 +144,7 @@ public class FrontServlet extends HttpServlet
         }
     }
 
-    public Object minvoke(Mapping map)throws Exception
+    public Object minvoke(Mapping map,HttpServletRequest request)throws Exception
     {
         if(map==null)
         {
@@ -149,10 +152,51 @@ public class FrontServlet extends HttpServlet
         }
 
         Class<?> clazz=Class.forName(map.getClassName());
-        Method method = clazz.getMethod(map.getMethodName());
+        Object instance=clazz.getDeclaredConstructor().newInstance();
+        Method[] allmethods=instance.getClass().getDeclaredMethods();
+        Method method = null;
+
+        for (int i = 0; i < allmethods.length; i++) 
+        {
+            if(allmethods[i].getName().equals(map.getMethodName()))
+            {
+                method=allmethods[i];
+            }
+        }
+        Parameter[] params=method.getParameters();
+        Object[] arguments=new Object[params.length];
+
+        for (int i = 0; i < params.length; i++) 
+        {
+            if(params[i].isAnnotationPresent(Param.class))
+            {
+                Param param=params[i].getAnnotation(Param.class);
+                String nom=param.nom();
+                String value=request.getParameter(nom);
+                arguments[i]=value;
+            }
+            else if(params[i].isAnnotationPresent(ParamObject.class))
+            {
+                Class<?> classParam = Class.forName(params[i].getType().getName());
+                Object objetParam = classParam.getDeclaredConstructor().newInstance();
+                Field[] tousLesChamps = classParam.getDeclaredFields();
+                    
+                for (int j = 0; j < tousLesChamps.length; j++) 
+                {
+                    Field champ = tousLesChamps[j];
+                    String nom = champ.getName();
+                    String valeur = request.getParameter(nom);
+                    
+                    if (valeur != null) 
+                    {
+                        champ.setAccessible(true);
+                        champ.set(objetParam, convertirTypeChamp(valeur, champ.getType()));
+                    }
+                }
+            }
+        }
         method.setAccessible(true);
-        Object instance = clazz.getDeclaredConstructor().newInstance();
-        Object result = method.invoke(instance);
+        Object result = method.invoke(instance,arguments);
         if (result instanceof String || result instanceof ModelView) 
         {
             return result;
@@ -162,6 +206,31 @@ public class FrontServlet extends HttpServlet
             throw new Exception("Le type de retour doit sêtre String ou ModelView");
         }
 
+    }
+
+    public Object convertirTypeChamp(String valeur, Class<?> typeChamp) 
+    {
+        if (typeChamp == String.class) 
+        {
+            return valeur;
+        } 
+        else if (typeChamp == int.class || typeChamp == Integer.class) 
+        {
+            return Integer.parseInt(valeur);
+        } 
+        else if (typeChamp == long.class || typeChamp == Long.class) 
+        {
+            return Long.parseLong(valeur);
+        } 
+        else if (typeChamp == double.class || typeChamp == Double.class) 
+        {
+            return Double.parseDouble(valeur);
+        } 
+        else if (typeChamp == boolean.class || typeChamp == Boolean.class) 
+        {
+            return Boolean.parseBoolean(valeur);
+        }
+        return null;
     }
 
     public void verifDoublant(String url)throws Exception
