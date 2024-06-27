@@ -95,7 +95,9 @@ public class FrontServlet extends HttpServlet
                 if (queryString != null) {
                     fullUrl.append("?").append(queryString);
                 }
-                this.verifDoublant(fullUrl.toString());
+
+                String fullUrlString=this.removeParameter(fullUrl.toString());
+                this.verifDoublant(fullUrlString.toString());
         
                 Mapping mapping = this.getMappings().get(fullUrl.toString());
                 Object result=this.minvoke(mapping,request);
@@ -208,6 +210,19 @@ public class FrontServlet extends HttpServlet
             throw new Exception("Le type de retour doit sêtre String ou ModelView");
         }
 
+    }
+
+    public String removeParameter(String fullUrl)
+    {
+        int index=fullUrl.lastIndexOf("?");
+        if(index==-1)
+        {
+            return fullUrl;
+        }
+        else
+        {
+            return fullUrl.substring(0,index);
+        }
     }
 
     public Object convertirTypeChamp(String valeur, Class<?> typeChamp) 
