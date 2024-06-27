@@ -24,7 +24,6 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -98,9 +97,9 @@ public class FrontServlet extends HttpServlet
 
                 String fullUrlString=this.removeParameter(fullUrl.toString());
                 this.verifDoublant(fullUrlString.toString());
-        
                 Mapping mapping = this.getMappings().get(fullUrlString.toString());
                 Object result=this.minvoke(mapping,request);
+
                 if (result instanceof String) 
                 {
                     String resultString = (String) result;
@@ -347,6 +346,7 @@ public class FrontServlet extends HttpServlet
         {
             throw new Exception("La valeur du package est vide ou n'existe pas.");
         }
+
     }
 
 
