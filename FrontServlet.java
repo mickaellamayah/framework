@@ -35,6 +35,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.ServletContext;
 import mesAnnotations.AnnotationControleur;
 import mesAnnotations.AnnotationGet;
+import mesAnnotations.FormAnnotation;
 import mesAnnotations.ParamObject;
 import mesAnnotations.Param;
 import mg.itu.prom16.Mapping;
@@ -181,17 +182,17 @@ public class FrontServlet extends HttpServlet
                 Class<?> classParam = Class.forName(params[i].getType().getName());
                 Object objetParam = classParam.getDeclaredConstructor().newInstance();
                 Field[] tousLesChamps = classParam.getDeclaredFields();
-                    
+                arguments[i]=objetParam;
                 for (int j = 0; j < tousLesChamps.length; j++) 
                 {
-                    Field champ = tousLesChamps[j];
-                    String nom = champ.getName();
-                    String valeur = request.getParameter(nom);
-                    
-                    if (valeur != null) 
+                    if(tousLesChamps[j].isAnnotationPresent(FormAnnotation.class))
                     {
+                        Field champ = tousLesChamps[j];
+                        FormAnnotation formAnnotation=champ.getAnnotation(FormAnnotation.class);
+                        String nom=formAnnotation.nom();
+                        String valeur = request.getParameter(nom);
                         champ.setAccessible(true);
-                        champ.set(objetParam, convertirTypeChamp(valeur, champ.getType()));
+                        champ.set(objetParam,convertirTypeChamp(valeur, champ.getType()));
                     }
                 }
             }
@@ -243,15 +244,16 @@ public class FrontServlet extends HttpServlet
         }
     }
 
-    public static List<File>  scaner(File directory)
+    public static List<File>  scaner(File directory,String controleurPackage)
     {
+        File classPath=new File(directory.getPath()+"/classes/"+controleurPackage);
         File[] classes=directory.listFiles();
         List <File> all=new ArrayList<>();
         for (int i = 0; i < classes.length; i++) 
         {
             if(classes[i].isDirectory() && !classes[i].getName().contains("mg"))
             {
-                all.addAll(scaner(classes[i]));
+                all.addAll(scaner(classes[i],controleurPackage));
             }
             else if(classes[i].getName().endsWith(".class"))
             {
@@ -264,7 +266,8 @@ public class FrontServlet extends HttpServlet
 
     public static  List<String> getListeControleur(File file)throws Exception
     {
-        List<File> allClass=scaner(file);
+        String packageCtrl=getPackage(file);
+        List<File> allClass=scaner(file,packageCtrl);
         List<String> ClassAnnoter=new ArrayList<>();
         for (int i = 0; i < allClass.size(); i++) 
         {
