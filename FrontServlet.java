@@ -99,7 +99,7 @@ public class FrontServlet extends HttpServlet
                 String fullUrlString=this.removeParameter(fullUrl.toString());
                 this.verifDoublant(fullUrlString.toString());
         
-                Mapping mapping = this.getMappings().get(fullUrl.toString());
+                Mapping mapping = this.getMappings().get(fullUrlString.toString());
                 Object result=this.minvoke(mapping,request);
                 if (result instanceof String) 
                 {
@@ -111,7 +111,6 @@ public class FrontServlet extends HttpServlet
                     ModelView modelView = (ModelView) result;
                     String url=modelView.getUrl();
                     HashMap<String,Object> data=modelView.getData();
-
                     Set<String> keys = data.keySet();
                     for (int i = 0; i < keys.size(); i++) 
                     {
