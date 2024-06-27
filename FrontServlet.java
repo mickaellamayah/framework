@@ -21,10 +21,9 @@ import org.w3c.dom.NodeList;
 
 import java.io.PrintWriter;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.net.http.HttpRequest;
-
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -35,6 +34,8 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.ServletContext;
 import mesAnnotations.AnnotationControleur;
 import mesAnnotations.AnnotationGet;
+import mesAnnotations.FormAnnotation;
+import mesAnnotations.ParamObject;
 import mesAnnotations.Param;
 import mg.itu.prom16.Mapping;
 
@@ -93,9 +94,10 @@ public class FrontServlet extends HttpServlet
                 if (queryString != null) {
                     fullUrl.append("?").append(queryString);
                 }
-                this.verifDoublant(fullUrl.toString());
-        
-                Mapping mapping = this.getMappings().get(fullUrl.toString());
+
+                String fullUrlString=this.removeParameter(fullUrl.toString());
+                this.verifDoublant(fullUrlString.toString());
+                Mapping mapping = this.getMappings().get(fullUrlString.toString());
                 Object result=this.minvoke(mapping,request);
 
                 if (result instanceof String) 
@@ -108,7 +110,6 @@ public class FrontServlet extends HttpServlet
                     ModelView modelView = (ModelView) result;
                     String url=modelView.getUrl();
                     HashMap<String,Object> data=modelView.getData();
-
                     Set<String> keys = data.keySet();
                     for (int i = 0; i < keys.size(); i++) 
                     {
@@ -176,6 +177,25 @@ public class FrontServlet extends HttpServlet
                 String value=request.getParameter(nom);
                 arguments[i]=value;
             }
+            else if(params[i].isAnnotationPresent(ParamObject.class))
+            {
+                Class<?> classParam = Class.forName(params[i].getType().getName());
+                Object objetParam = classParam.getDeclaredConstructor().newInstance();
+                Field[] tousLesChamps = classParam.getDeclaredFields();
+                arguments[i]=objetParam;
+                for (int j = 0; j < tousLesChamps.length; j++) 
+                {
+                    if(tousLesChamps[j].isAnnotationPresent(FormAnnotation.class))
+                    {
+                        Field champ = tousLesChamps[j];
+                        FormAnnotation formAnnotation=champ.getAnnotation(FormAnnotation.class);
+                        String nom=formAnnotation.nom();
+                        String valeur = request.getParameter(nom);
+                        champ.setAccessible(true);
+                        champ.set(objetParam,convertirTypeChamp(valeur, champ.getType()));
+                    }
+                }
+            }
         }
         method.setAccessible(true);
         Object result = method.invoke(instance,arguments);
@@ -190,6 +210,44 @@ public class FrontServlet extends HttpServlet
 
     }
 
+    public String removeParameter(String fullUrl)
+    {
+        int index=fullUrl.lastIndexOf("?");
+        if(index==-1)
+        {
+            return fullUrl;
+        }
+        else
+        {
+            return fullUrl.substring(0,index);
+        }
+    }
+
+    public Object convertirTypeChamp(String valeur, Class<?> typeChamp) 
+    {
+        if (typeChamp == String.class) 
+        {
+            return valeur;
+        } 
+        else if (typeChamp == int.class || typeChamp == Integer.class) 
+        {
+            return Integer.parseInt(valeur);
+        } 
+        else if (typeChamp == long.class || typeChamp == Long.class) 
+        {
+            return Long.parseLong(valeur);
+        } 
+        else if (typeChamp == double.class || typeChamp == Double.class) 
+        {
+            return Double.parseDouble(valeur);
+        } 
+        else if (typeChamp == boolean.class || typeChamp == Boolean.class) 
+        {
+            return Boolean.parseBoolean(valeur);
+        }
+        return null;
+    }
+
     public void verifDoublant(String url)throws Exception
     {
         HashMap<String,Mapping> mapping=this.getMappings();
@@ -199,15 +257,16 @@ public class FrontServlet extends HttpServlet
         }
     }
 
-    public static List<File>  scaner(File directory)
+    public static List<File>  scaner(File directory,String controleurPackage)
     {
+        File classPath=new File(directory.getPath()+"/classes/"+controleurPackage);
         File[] classes=directory.listFiles();
         List <File> all=new ArrayList<>();
         for (int i = 0; i < classes.length; i++) 
         {
             if(classes[i].isDirectory() && !classes[i].getName().contains("mg"))
             {
-                all.addAll(scaner(classes[i]));
+                all.addAll(scaner(classes[i],controleurPackage));
             }
             else if(classes[i].getName().endsWith(".class"))
             {
@@ -220,7 +279,8 @@ public class FrontServlet extends HttpServlet
 
     public static  List<String> getListeControleur(File file)throws Exception
     {
-        List<File> allClass=scaner(file);
+        String packageCtrl=getPackage(file);
+        List<File> allClass=scaner(file,packageCtrl);
         List<String> ClassAnnoter=new ArrayList<>();
         for (int i = 0; i < allClass.size(); i++) 
         {
