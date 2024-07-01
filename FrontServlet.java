@@ -37,6 +37,7 @@ import mesAnnotations.AnnotationControleur;
 import mesAnnotations.AnnotationGet;
 import mesAnnotations.Param;
 import mg.itu.prom16.Mapping;
+import mg.itu.prom16.MySession;
 
 @AnnotationControleur(value="Annotation sur ma classe")
 public class FrontServlet extends HttpServlet
@@ -175,6 +176,12 @@ public class FrontServlet extends HttpServlet
                 String nom=param.nom();
                 String value=request.getParameter(nom);
                 arguments[i]=value;
+            }
+            else if(params[i].getType() == MySession.class)
+            {
+                MySession session=new MySession();
+                session.setSession(request.getSession());
+                arguments[i]=session;
             }
         }
         method.setAccessible(true);
