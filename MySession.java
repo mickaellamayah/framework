@@ -1,35 +1,32 @@
 package mg.itu.prom16;
-import jakarta.servlet.http.HttpSession;
 
-public class MySession
-{
-    HttpSession session;
+import javax.servlet.http.HttpSession;
+import java.io.IOException;
 
-    public HttpSession getSession() {
-        return session;
-    }
+public class MySession {
+    private HttpSession session;
 
-    public void setSession(HttpSession session) {
+    public MySession(HttpSession session) {
         this.session = session;
     }
 
-    public Object getSession(String key)
-    {
-        return this.session.getAttribute(key);
+    public void add(String key, Object object) throws Exception {
+        if (session.getAttribute(key) == null) {
+            session.setAttribute(key, object);
+        } else {
+            throw new Exception("Key déjà existante dans la session.");
+        }
     }
 
-    public void addSession(String key,Object objet)
-    {
-        this.session.setAttribute(key,objet);
+    public Object get(String key) {
+        return session.getAttribute(key);
     }
 
-    public void removeSession(String key)
-    {
-        this.session.removeAttribute(key);
+    public void delete(String key) throws Exception {
+        if (session.getAttribute(key) != null) {
+            session.removeAttribute(key);
+        } else {
+            throw new Exception("Key introuvable dans la session.");
+        }
     }
-
-    // public void updateSession(String key,Object objet)
-    // {
-    //     this.session.setAttribute(key,objet);
-    // }
 }

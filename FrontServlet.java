@@ -21,29 +21,29 @@ import org.w3c.dom.NodeList;
 
 import java.io.PrintWriter;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.net.http.HttpRequest;
-
-import jakarta.servlet.RequestDispatcher;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.ServletContext;
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.ServletContext;
 import mesAnnotations.AnnotationControleur;
 import mesAnnotations.AnnotationGet;
+import mesAnnotations.FormAnnotation;
+import mesAnnotations.ParamObject;
 import mesAnnotations.Param;
 import mg.itu.prom16.Mapping;
 import mg.itu.prom16.MySession;
 
-@AnnotationControleur(value="Annotation sur ma classe")
-public class FrontServlet extends HttpServlet
-{
+@AnnotationControleur(value = "Annotation sur ma classe")
+public class FrontServlet extends HttpServlet {
     List<String> liste;
-    HashMap<String,Mapping> mappings;
+    HashMap<String, Mapping> mappings;
 
     public HashMap<String, Mapping> getMappings() {
         return mappings;
@@ -62,162 +62,181 @@ public class FrontServlet extends HttpServlet
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)throws ServletException, IOException 
-    {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
         processRequest(request, response);
     }
 
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)throws ServletException, IOException 
-    {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
         processRequest(request, response);
     }
 
-    protected void processRequest(HttpServletRequest request,HttpServletResponse response)throws ServletException,IOException
-    {
-            response.setContentType("text/html");
-            PrintWriter out = response.getWriter();
-            try
-            {
-                String contextPath = request.getContextPath();
-                String servletPath = request.getServletPath();
-                String pathInfo = request.getPathInfo();
-                String queryString = request.getQueryString();
-        
-                StringBuilder fullUrl = new StringBuilder();
-                if (servletPath != null) {
-                    fullUrl.append(servletPath);
-                }
-                if (pathInfo != null) {
-                    fullUrl.append(pathInfo);
-                }
-                if (queryString != null) {
-                    fullUrl.append("?").append(queryString);
-                }
-                this.verifDoublant(fullUrl.toString());
-        
-                Mapping mapping = this.getMappings().get(fullUrl.toString());
-                Object result=this.minvoke(mapping,request);
+    protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
+        try {
+            // sprint8
+            // HttpSession session = request.getSession();
+            // MySession mySession = new MySession(session);
+            // request.setAttribute("mySession", mySession);
+            // sprint8
 
-                if (result instanceof String) 
-                {
-                    String resultString = (String) result;
-                    out.print(resultString);
-                } 
-                else if (result instanceof ModelView) 
-                {
-                    ModelView modelView = (ModelView) result;
-                    String url=modelView.getUrl();
-                    HashMap<String,Object> data=modelView.getData();
+            String contextPath = request.getContextPath();
+            String servletPath = request.getServletPath();
+            String pathInfo = request.getPathInfo();
+            String queryString = request.getQueryString();
 
-                    Set<String> keys = data.keySet();
-                    for (int i = 0; i < keys.size(); i++) 
-                    {
-                        String key = (String) keys.toArray()[i];
-                        Object value = data.get(key);
-                        request.setAttribute(key,value);
-                    }
-                    RequestDispatcher dispatch=request.getRequestDispatcher(url);
-                    dispatch.forward(request,response);
-                } 
-                else 
-                {
-                    System.out.println("La méthode a renvoyé un type inattendu : " + result.getClass().getName());
-                }
-            } 
-            catch (Exception e) 
-            {
-                out.println(e.getMessage());
-                e.printStackTrace();
+            StringBuilder fullUrl = new StringBuilder();
+            if (servletPath != null) {
+                fullUrl.append(servletPath);
             }
-    }
+            if (pathInfo != null) {
+                fullUrl.append(pathInfo);
+            }
+            if (queryString != null) {
+                fullUrl.append("?").append(queryString);
+            }
 
-    @Override
-    public void init() throws ServletException
-    {
-        try
-        {
-           HashMap<String,Mapping> map=this.scanneMapping();
-           this.setMappings(map);
-        }
-        catch(Exception e)
-        {
+            String fullUrlString = this.removeParameter(fullUrl.toString());
+            this.verifDoublant(fullUrlString.toString());
+            Mapping mapping = this.getMappings().get(fullUrlString.toString());
+            Object result = this.minvoke(mapping, request);
+
+            if (result instanceof String) {
+                String resultString = (String) result;
+                out.print(resultString);
+            } else if (result instanceof ModelView) {
+                ModelView modelView = (ModelView) result;
+                String url = modelView.getUrl();
+                HashMap<String, Object> data = modelView.getData();
+                Set<String> keys = data.keySet();
+                for (int i = 0; i < keys.size(); i++) {
+                    String key = (String) keys.toArray()[i];
+                    Object value = data.get(key);
+                    request.setAttribute(key, value);
+                }
+                RequestDispatcher dispatch = request.getRequestDispatcher(url);
+                dispatch.forward(request, response);
+            } else {
+                System.out.println("La méthode a renvoyé un type inattendu : " + result.getClass().getName());
+            }
+        } catch (Exception e) {
+            out.println(e.getMessage());
             e.printStackTrace();
         }
     }
 
-    public Object minvoke(Mapping map,HttpServletRequest request)throws Exception
-    {
-        if(map==null)
-        {
+    @Override
+    public void init() throws ServletException {
+        try {
+            HashMap<String, Mapping> map = this.scanneMapping();
+            this.setMappings(map);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public Object minvoke(Mapping map, HttpServletRequest request) throws Exception {
+        if (map == null) {
             throw new Exception("Url introuvable");
         }
 
-        Class<?> clazz=Class.forName(map.getClassName());
-        Object instance=clazz.getDeclaredConstructor().newInstance();
-        Method[] allmethods=instance.getClass().getDeclaredMethods();
+        Class<?> clazz = Class.forName(map.getClassName());
+        Object instance = clazz.getDeclaredConstructor().newInstance();
+        Method[] allmethods = instance.getClass().getDeclaredMethods();
         Method method = null;
 
-        for (int i = 0; i < allmethods.length; i++) 
-        {
-            if(allmethods[i].getName().equals(map.getMethodName()))
-            {
-                method=allmethods[i];
+        for (int i = 0; i < allmethods.length; i++) {
+            if (allmethods[i].getName().equals(map.getMethodName())) {
+                method = allmethods[i];
             }
         }
-        Parameter[] params=method.getParameters();
-        Object[] arguments=new Object[params.length];
+        Parameter[] params = method.getParameters();
+        Object[] arguments = new Object[params.length];
 
-        for (int i = 0; i < params.length; i++) 
-        {
-            if(params[i].isAnnotationPresent(Param.class))
-            {
-                Param param=params[i].getAnnotation(Param.class);
-                String nom=param.nom();
-                String value=request.getParameter(nom);
-                arguments[i]=value;
+        for (int i = 0; i < params.length; i++) {
+            if (params[i].isAnnotationPresent(Param.class)) {
+                Param param = params[i].getAnnotation(Param.class);
+                String nom = param.nom();
+                String value = request.getParameter(nom);
+                arguments[i] = value;
+            } else if (params[i].isAnnotationPresent(ParamObject.class)) {
+                Class<?> classParam = Class.forName(params[i].getType().getName());
+                Object objetParam = classParam.getDeclaredConstructor().newInstance();
+                Field[] tousLesChamps = classParam.getDeclaredFields();
+                arguments[i] = objetParam;
+                for (int j = 0; j < tousLesChamps.length; j++) {
+                    if (tousLesChamps[j].isAnnotationPresent(FormAnnotation.class)) {
+                        Field champ = tousLesChamps[j];
+                        FormAnnotation formAnnotation = champ.getAnnotation(FormAnnotation.class);
+                        String nom = formAnnotation.nom();
+                        String valeur = request.getParameter(nom);
+                        champ.setAccessible(true);
+                        champ.set(objetParam, convertirTypeChamp(valeur, champ.getType()));
+                    }
+                }
             }
-            else if(params[i].getType() == MySession.class)
-            {
-                MySession session=new MySession();
-                session.setSession(request.getSession());
-                arguments[i]=session;
+
+            // sprint8
+            else if (params[i].getType().equals(MySession.class)) {
+                HttpSession session = request.getSession();
+                MySession mySession = new MySession(session);
+                arguments[i] = mySession;
             }
+            // sprint8
         }
         method.setAccessible(true);
-        Object result = method.invoke(instance,arguments);
-        if (result instanceof String || result instanceof ModelView) 
-        {
+        Object result = method.invoke(instance, arguments);
+        if (result instanceof String || result instanceof ModelView) {
             return result;
-        } 
-        else
-        {
+        } else {
             throw new Exception("Le type de retour doit sêtre String ou ModelView");
         }
 
     }
 
-    public void verifDoublant(String url)throws Exception
-    {
-        HashMap<String,Mapping> mapping=this.getMappings();
-        if(mapping==null)
-        {
+    public String removeParameter(String fullUrl) {
+        int index = fullUrl.lastIndexOf("?");
+        if (index == -1) {
+            return fullUrl;
+        } else {
+            return fullUrl.substring(0, index);
+        }
+    }
+
+    public Object convertirTypeChamp(String valeur, Class<?> typeChamp) {
+        if (typeChamp == String.class) {
+            return valeur;
+        } else if (typeChamp == int.class || typeChamp == Integer.class) {
+            return Integer.parseInt(valeur);
+        } else if (typeChamp == long.class || typeChamp == Long.class) {
+            return Long.parseLong(valeur);
+        } else if (typeChamp == double.class || typeChamp == Double.class) {
+            return Double.parseDouble(valeur);
+        } else if (typeChamp == boolean.class || typeChamp == Boolean.class) {
+            return Boolean.parseBoolean(valeur);
+        }
+        return null;
+    }
+
+    public void verifDoublant(String url) throws Exception {
+        HashMap<String, Mapping> mapping = this.getMappings();
+        if (mapping == null) {
             throw new Exception("URL en doublant");
         }
     }
 
-    public static List<File>  scaner(File directory)
-    {
-        File[] classes=directory.listFiles();
-        List <File> all=new ArrayList<>();
-        for (int i = 0; i < classes.length; i++) 
-        {
-            if(classes[i].isDirectory() && !classes[i].getName().contains("mg"))
-            {
-                all.addAll(scaner(classes[i]));
-            }
-            else if(classes[i].getName().endsWith(".class"))
-            {
+    public static List<File> scaner(File directory, String controleurPackage) {
+        File classPath = new File(directory.getPath() + "/classes/" + controleurPackage);
+        File[] classes = directory.listFiles();
+        List<File> all = new ArrayList<>();
+        for (int i = 0; i < classes.length; i++) {
+            if (classes[i].isDirectory() && !classes[i].getName().contains("mg")) {
+                all.addAll(scaner(classes[i], controleurPackage));
+            } else if (classes[i].getName().endsWith(".class")) {
                 all.add(classes[i]);
             }
         }
@@ -225,26 +244,21 @@ public class FrontServlet extends HttpServlet
         return all;
     }
 
-    public static  List<String> getListeControleur(File file)throws Exception
-    {
-        List<File> allClass=scaner(file);
-        List<String> ClassAnnoter=new ArrayList<>();
-        for (int i = 0; i < allClass.size(); i++) 
-        {
-            String pathClass=allClass.get(i).getName().split("[.]")[0];
-            try
-            {
+    public static List<String> getListeControleur(File file) throws Exception {
+        String packageCtrl = getPackage(file);
+        List<File> allClass = scaner(file, packageCtrl);
+        List<String> ClassAnnoter = new ArrayList<>();
+        for (int i = 0; i < allClass.size(); i++) {
+            String pathClass = allClass.get(i).getName().split("[.]")[0];
+            try {
                 System.out.println(getPackage(file));
-                pathClass=getPackage(file)+"."+pathClass;
-                Class<?> clazz=null;
-                clazz=Class.forName(pathClass);
-                if(clazz.isAnnotationPresent(AnnotationControleur.class))
-                {
+                pathClass = getPackage(file) + "." + pathClass;
+                Class<?> clazz = null;
+                clazz = Class.forName(pathClass);
+                if (clazz.isAnnotationPresent(AnnotationControleur.class)) {
                     ClassAnnoter.add(pathClass);
                 }
-            }
-            catch(Exception e)
-            {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
 
@@ -252,20 +266,18 @@ public class FrontServlet extends HttpServlet
         return ClassAnnoter;
     }
 
-    private static String removeEndClass(String pathclass)
-    {
-        pathclass=pathclass.replace("/",".");
-        pathclass=pathclass.replace("/",".");
-        char[] ch=pathclass.toCharArray();
-        ch[ch.length-1]='\0';
-        ch[0]='\0';
-        ch[1]='\0';
-        pathclass=String.valueOf(ch);
+    private static String removeEndClass(String pathclass) {
+        pathclass = pathclass.replace("/", ".");
+        pathclass = pathclass.replace("/", ".");
+        char[] ch = pathclass.toCharArray();
+        ch[ch.length - 1] = '\0';
+        ch[0] = '\0';
+        ch[1] = '\0';
+        pathclass = String.valueOf(ch);
         return pathclass;
     }
 
-    public static String getPackage(File path)throws Exception
-    {
+    public static String getPackage(File path) throws Exception {
         // DocumentBuilderFactory factory=DocumentBuilderFactory.newInstance();
         // DocumentBuilder builder=factory.newDocumentBuilder();
         // Document document=builder.parse(path.getPath()+"/"+"web.xml");
@@ -284,66 +296,68 @@ public class FrontServlet extends HttpServlet
 
         Element element = (Element) nodeList.item(0);
 
-        Node node = element.getFirstChild(); 
-        if (node!= null &&!node.getTextContent().trim().isEmpty()) 
-        {
+        Node node = element.getFirstChild();
+        if (node != null && !node.getTextContent().trim().isEmpty()) {
             return node.getTextContent().trim();
-        } 
-        else 
-        {
+        } else {
             throw new Exception("La valeur du package est vide ou n'existe pas.");
         }
 
     }
 
-
-    public HashMap<String,Mapping> scanneMapping()throws ServletException,Exception
-    {
-        List<String> liste=new ArrayList<>();
-        HashMap<String,Mapping> map=new HashMap<>();
-        ServletContext context=getServletContext();
-        String path=context.getRealPath("/");
-        File all=new File(path+"WEB-INF");
-        try
-        {
-            List<String> ctrl=FrontServlet.getListeControleur(all);
-            for (int i = 0; i < ctrl.size(); i++) 
-            {
-                String clazz=ctrl.get(i);
-                Class<?> clazzs=null;
-                clazzs=Class.forName(clazz);
+    public HashMap<String, Mapping> scanneMapping() throws ServletException, Exception {
+        List<String> liste = new ArrayList<>();
+        HashMap<String, Mapping> map = new HashMap<>();
+        ServletContext context = getServletContext();
+        String path = context.getRealPath("/");
+        File all = new File(path + "WEB-INF");
+        try {
+            List<String> ctrl = FrontServlet.getListeControleur(all);
+            for (int i = 0; i < ctrl.size(); i++) {
+                String clazz = ctrl.get(i);
+                Class<?> clazzs = null;
+                clazzs = Class.forName(clazz);
                 Object instance = clazzs.getDeclaredConstructor().newInstance();
-                Method[] tabmethode=instance.getClass().getDeclaredMethods();
+                Method[] tabmethode = instance.getClass().getDeclaredMethods();
 
-                for (int j = 0; j < tabmethode.length; j++) 
-                {
-                    if(tabmethode[j].isAnnotationPresent(AnnotationGet.class))
-                    {
-                        AnnotationGet annot=tabmethode[j].getAnnotation(AnnotationGet.class);
-                        String url=annot.url();
+                for (int j = 0; j < tabmethode.length; j++) {
+                    if (tabmethode[j].isAnnotationPresent(AnnotationGet.class)) {
+                        AnnotationGet annot = tabmethode[j].getAnnotation(AnnotationGet.class);
+                        String url = annot.url();
                         liste.add(url);
-                        Mapping mapping=new Mapping();
+                        Mapping mapping = new Mapping();
                         mapping.setMethodName(tabmethode[j].getName());
                         mapping.setClassName(ctrl.get(i));
                         map.put(url, mapping);
-                    }   
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        for (int i = 0; i < liste.size(); i++) {
+            for (int j = 0; j < liste.size(); j++) {
+                if (liste.get(i).equals(liste.get(j)) && i != j) {
+                    throw new Exception("URL en doublant" + liste.get(j));
                 }
             }
         }
-        catch(Exception e)
-        {
-            e.printStackTrace();
-        }
-        for (int i = 0; i < liste.size(); i++) 
-        {
-            for (int j = 0; j < liste.size(); j++) 
-            {
-                if(liste.get(i).equals(liste.get(j)) && i!=j)
-                {
-                    throw new Exception("URL en doublant"+liste.get(j));
-                }
-            }    
-        }
         return map;
     }
+
+    // -----Sprint8---------------
+    // @Override
+    // public void doFilter(ServletRequest request, ServletResponse response,
+    // FilterChain chain)
+    // throws IOException, ServletException {
+    // HttpServletRequest httpRequest = (HttpServletRequest) request;
+    // HttpSession httpSession = httpRequest.getSession();
+
+    // // Vérifie si MySession est nécessaire dans le contrôleur
+    // MySession mySession = new MySession(httpSession);
+    // request.setAttribute("mySession", mySession);
+
+    // // Continuer avec la requête
+    // chain.doFilter(request, response);
+    // }
 }

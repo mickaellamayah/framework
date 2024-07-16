@@ -1,11 +1,11 @@
 package modelView;
+
 import java.util.HashMap;
 
-public class ModelView 
-{
+public class ModelView {
     String url;
-    HashMap<String,Object> data = new HashMap<>();
-    
+    HashMap<String, Object> data = new HashMap<>();
+
     public String getUrl() {
         return url;
     }
@@ -22,13 +22,11 @@ public class ModelView
         this.data = data;
     }
 
-    public void addObject(String cle,Object object)
-    {
-        this.data.put(cle,object);
+    public void addObject(String cle, Object object) {
+        this.data.put(cle, object);
     }
 
-    public void addVariable(String nom,Object objet)
-    {
-        this.getData().put(nom,objet);
+    public void addVariable(String nom, Object objet) {
+        this.getData().put(nom, objet);
     }
-} 
+}
