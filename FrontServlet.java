@@ -121,8 +121,6 @@ public class FrontServlet extends HttpServlet {
                 }
             }
             if (method != null && method.isAnnotationPresent(RestApiAnnotation.class)) {
-                // RestApiAnnotation restApi = method.getAnnotation(RestApiAnnotation.class);
-                // System.out.println("Rest API URL: " + restApi.url());
                 if (!(result instanceof ModelView)) {
                     Gson gson = new Gson();
                     String jsonReponse = gson.toJson(result);
