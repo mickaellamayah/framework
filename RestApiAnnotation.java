@@ -6,8 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
+@Target(ElementType.METHOD)
 
-public @interface AnnotationControleur {
-    String value() default "Valeur par defaut de mon annotation";
+public @interface RestApiAnnotation {
+    String url();
 }
