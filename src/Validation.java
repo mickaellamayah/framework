@@ -17,18 +17,19 @@ public class Validation {
         for (Field field : clazz.getDeclaredFields()) {
             field.setAccessible(true);
             try {
-                Object fieldValue = field.get(obj);
+                Object fieldValue = field.get(obj);  // Valeur du champ
+                String fieldValueString = (fieldValue != null) ? fieldValue.toString() : "null";  // Conversion de la valeur en chaîne
 
                 for (Annotation annotation : field.getAnnotations()) {
                     if (annotation instanceof NotNull) {
                         if (fieldValue == null) {
-                            exceptions.add(new ValidationException(field.getName(), ((NotNull) annotation).message()));
+                            exceptions.add(new ValidationException(field.getName(), ((NotNull) annotation).message(), fieldValueString));
                         }
                     }
 
                     if (annotation instanceof Mail) {
                         if (fieldValue != null && !isValidEmail(fieldValue.toString())) {
-                            exceptions.add(new ValidationException(field.getName(), ((Mail) annotation).message()));
+                            exceptions.add(new ValidationException(field.getName(), ((Mail) annotation).message(), fieldValueString));
                         }
                     }
 
@@ -38,7 +39,8 @@ public class Validation {
                             if ((Integer) fieldValue > maxValue) {
                                 exceptions.add(new ValidationException(
                                         field.getName(),
-                                        ((Max) annotation).message().replace("{value}", String.valueOf(maxValue))
+                                        ((Max) annotation).message().replace("{value}", String.valueOf(maxValue)),
+                                        fieldValueString
                                 ));
                             }
                         }
@@ -50,14 +52,15 @@ public class Validation {
                             if ((Integer) fieldValue < minValue) {
                                 exceptions.add(new ValidationException(
                                         field.getName(),
-                                        ((Min) annotation).message().replace("{value}", String.valueOf(minValue))
+                                        ((Min) annotation).message().replace("{value}", String.valueOf(minValue)),
+                                        fieldValueString
                                 ));
                             }
                         }
                     }
                 }
             } catch (IllegalAccessException e) {
-                exceptions.add(new ValidationException(field.getName(), "Erreur lors de la validation du champ"));
+                exceptions.add(new ValidationException(field.getName(), "Erreur lors de la validation du champ", "N/A"));
             }
         }
 
