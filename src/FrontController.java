@@ -1,135 +1,201 @@
-package controller;
+package mg.controller.principal;
 
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.List;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.ServletContext;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.RequestDispatcher;
+import java.util.*;
 
-import util.Function;
-import util.JsonObject;
-import util.Mapping;
-import util.ModelView;
-import util.MySet;
-import util.VerbMethod;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
+import mg.tool.*;
+import mg.annotation.*;
+import mg.exception.*;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.lang.reflect.*;
+import java.lang.annotation.Annotation;
+import jakarta.servlet.annotation.MultipartConfig;
 
+@MultipartConfig
 public class FrontController extends HttpServlet {
-    List<Class<?>> listeController = null;
-    String path = null;
-    String packageController = null;
-    HashMap<String, Mapping> hmap = new HashMap<>();
-    Function f = new Function();
+    List<Class<?>> controllers = null;
+    HashMap<String, Mapping> lists = new HashMap<>();
+    String prefix;
+    String suffix;
+    String verbName;
 
+ @Override
     public void init() throws ServletException {
         try {
-            ServletContext servletContext = getServletContext();
-            path = servletContext.getRealPath("WEB-INF/classes");
-            packageController = getServletContext().getInitParameter("packageController");
-            listeController = f.findControllerAndMethod(path, packageController);
+            initVariables();
+        } catch (DuplicateKeyException | EmptyPackageException e) {
+            throw new ServletException(e.getMessage(), e);
+        }
+    }
 
-            for (Class<?> class1 : listeController) {
-                List<Method> listMethods = f.getAnnotatedMethods(class1);
+    private void initVariables() throws ServletException,DuplicateKeyException,EmptyPackageException {
+        this.prefix = getServletContext().getInitParameter("prefix");
+        this.suffix = getServletContext().getInitParameter("suffix");
+        
+        String controllerPackage = getInitParameter("controllers");
+        if (controllerPackage != null && !controllerPackage.isEmpty()) {
+            try {
+                controllers = Util.getClassesFromPackage(controllerPackage);
+                    
+                    if(controllers.isEmpty()){
+                        throw new EmptyPackageException("The package " + controllerPackage + " is empty.");
+                    }
 
-                for (Method method : listMethods) {
-                    String url = f.getAnnotationValue(method);
-                    VerbMethod vb = f.getVerbMethod(method);
+                for (Class<?> class1 : controllers) {
+                    Method[] methods = class1.getDeclaredMethods();
+                    for (Method method : methods) {              
+                        
+                        if (method.isAnnotationPresent(Url.class)) {
+                            Url getAnnotation = method.getAnnotation(Url.class);
+                            String annotationValue = getAnnotation.value();
+                            
+                            System.out.println("Valeur de l'annotation url: "+ annotationValue);
+                            Annotation[] annotations = method.getAnnotations();
+                          
 
-                    if (!hmap.containsKey(url)) {
-                        Mapping mapping = new Mapping();
-                        mapping.setClassName(class1.getName());
-                        vb.setParameterTypes(method.getParameterTypes());
-                        mapping.addVerbMethod(vb);
-                        hmap.put(url, mapping);
-                    } else {
-                        Mapping mapping = hmap.get(url);
-                        if (containsVerb(mapping.getVerbMethods(), vb.getVerb())) {
-                            log("Duplicate verb detected: " + vb.getVerb() + " for URL: " + url);
-                            throw new ServletException("L'URL " + url + " EXISTE DÉJÀ AVEC LE MÊME VERBE!");
-                        } else if (mapping.getVerbMethods().contains(vb)) {
-                            log("Duplicate method name detected: " + vb.getMethodName() + " for URL: " + url);
-                            throw new ServletException("L'URL " + url + " EXISTE DÉJÀ AVEC LA MÊME MÉTHODE!");
-                        } else {
-                            vb.setParameterTypes(method.getParameterTypes());
-                            mapping.addVerbMethod(vb);
+                            // Parcourir les annotations et ignorer @Url
+                            for (Annotation annotation : annotations) {
+                                if (!annotation.annotationType().equals(Url.class)) {
+                                    verbName = annotation.annotationType().getSimpleName();
+                                }
+                            }
+
+                            String methodName = method.getName();
+                            String className = class1.getName();
+                            System.out.println("className trouve : " + className);
+                            System.out.println("methodName trouve : " + methodName);
+                            
+                            VerbMethod verbMethod = new VerbMethod();
+                            verbMethod.setMethodName(methodName);
+                            verbMethod.setVerb(verbName);
+                            
+                            Set<VerbMethod> verbMethodSet = new HashSet<>();
+                            verbMethodSet.add(verbMethod);
+
+                            Mapping newMapping = new Mapping();
+                            newMapping.setClassName(className);
+                            newMapping.setVerbMethods(verbMethodSet);
+
+                            if (lists.containsKey(annotationValue)) {
+                                Mapping foundMapping = lists.get(annotationValue);
+                                if (newMapping.containsVerbMethodFromObject(foundMapping)) {
+                                    throw new Exception("L'url "+ annotationValue + "existe deja ");
+                                }
+                                foundMapping.addVerbMethod(verbMethod);
+                            }
+
+                            lists.put(annotationValue, newMapping);
                         }
+
                     }
                 }
+            } catch (Exception e) {
+                throw new ServletException("Error initializing controllers from package: " + controllerPackage, e);
             }
-        } catch (ServletException e) {
-            log("Initialization error: " + e.getMessage());
-            throw new ServletException(e.getMessage());
+        } else {
+            throw new ServletException("No 'controllers' parameter provided.");
+        }
+    }
+
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        try {
+            this.processRequest(request, response);
         } catch (Exception e) {
-            throw new ServletException("Erreur lors de l'initialisation du contrôleur: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    private boolean containsVerb(MySet<VerbMethod> verbMethods, String verb) {
-        for (VerbMethod vb : verbMethods) {
-            if (vb.getVerb().equalsIgnoreCase(verb)) {
-                return true;
-            }
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        try {
+            this.processRequest(request, response);
+        } catch (Exception e) {
+           e.printStackTrace();
         }
-        return false;
+     
     }
 
-    protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        response.setContentType("text/html;charset=UTF-8");
-        try (PrintWriter out = response.getWriter()) {
-            String urlCourant = request.getServletPath();
-            if (hmap.containsKey(urlCourant)) {
-                Mapping map = hmap.get(urlCourant);
-                Class<?> clazz = Class.forName(map.getClassName());
-                MySet<VerbMethod> verbMethods = map.getVerbMethods();
+    private void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException,IOException,Exception {
+        String url = request.getRequestURI().substring(request.getContextPath().length());
+        try {
+            PrintWriter out = response.getWriter();
+            out.println("You successfully arrived into FrontController, URL :" + url);
 
-                VerbMethod vm = verbMethods.getVerbMethodCorresp(request.getMethod());
+            if (this.controllers != null) {
+                out.println("Voici la liste de vos controllers : ");
+                for (Class<?> class1 : this.controllers) {
+                    out.println(class1.getName());
+                }
+                out.println("url " + url);
+                System.out.println("Notre url: "+ url);
+                if (lists.containsKey(url)) {
+                    Mapping mapping = lists.get(url);
+                    String responseMethod = request.getMethod();
+                     if (responseMethod == null) {
+                        responseMethod = "GET"; 
+                    }   
+                    VerbMethod vb = mapping.getVerbMethodByUrl(responseMethod);                    
+                    if (vb == null) {
+                        ErrorHandler.sendError(request, response, "L'annotation de la méthode doit correspondre à l'annotation du formulaire.", HttpServletResponse.SC_NOT_FOUND);
+                        return;
+                    }
+                    String verbName = vb.getVerb();
 
-                if (vm != null) {
-                    Method meth = clazz.getDeclaredMethod(vm.getMethodName(), vm.getParameterTypes());
-                    Object retour = f.invokeMethod(meth, clazz, request);
+                    if (!verbName.equalsIgnoreCase(responseMethod) || verbName == null) {
+                        ErrorHandler.sendError(request, response, "L'annotation de la méthode doit correspondre à l'annotation du formulaire.", HttpServletResponse.SC_NOT_FOUND);
+                        return;
+                    }
+                    
+                    String methodName = vb.getMethodName();
+                    String className = mapping.getClassName();
 
-                    if (retour instanceof JsonObject) {
-                        JsonObject jsobj = (JsonObject) retour;
-                        response.setContentType("application/json");
-                        response.setCharacterEncoding("UTF-8");
-                        out.println(jsobj.getJsonValue());
-                    } else if (retour instanceof String) {
-                        out.println("<h2>Method value: " + retour + "</h2>");
-                    } else if (retour instanceof ModelView) {
-                        ModelView mv = (ModelView) retour;
-                        String url = mv.getUrl();
-                        HashMap<String,Object> data = mv.getData();
-                        data.forEach((key,value)->{
-                            request.setAttribute(key,value);
-                        });
-                        RequestDispatcher dispacht = request.getRequestDispatcher(url);
-                        dispacht.forward(request, response);
-                    } else {
-                        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "TYPE DE RETOUR NON RECONNU");
+                    out.println("Nom de la classe : " + className);
+                    out.println("Nom de la methode : " + methodName);
+                     
+                    try {
+                        // Object answer = Util.executeMethod(className, methodName);
+                        Object answer = ReflectionUtil.invokeMethodWithRequestParams(className, methodName, request, response);
+                        if (answer == null) {
+                            return; // On sort de la méthode
+                        }
+                        
+                        else if (answer instanceof String) {
+                            String rep = (String) answer;
+                        } 
+                        else if (answer instanceof ModelAndView) {
+                            ModelAndView rep = (ModelAndView) answer;
+                            String urljsp = this.prefix + rep.getUrl() + this.suffix;
+                            Map<String, Object> data = rep.getData();
+                            if (data.isEmpty()) {
+                                System.out.println("La map est vide.");
+                            } else {
+                                // Affichage des paires clé-valeur en utilisant entrySet()
+                                for (Map.Entry<String, Object> entry : data.entrySet()) {
+                                    System.out.println("Clé: " + entry.getKey() + ", Valeur: " + entry.getValue());
+                                }
+                            }
+                            Set<String> keys = data.keySet();
+                            for (String key : keys) {
+                                Object value = data.get(key);
+                                request.setAttribute(key, value);
+                            }
+                            request.getRequestDispatcher(urljsp).forward(request, response);
+                        }
+                        else {
+                            throw new InvalidReturnTypeException("Invalid return type: " + answer.getClass().getName()+ ". Le type de retour doit etre un string ou un ModelAndView");
+                        }
+
+                    } catch (Exception e) {
+                        out.println(e.getMessage());
                     }
                 } else {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "VERB OU METHOD INCORRECT");
+                    out.println("aucune méthode trouvée pour ce genre d'url");
                 }
-            } else {
-                response.sendError(HttpServletResponse.SC_NOT_FOUND, "URL NOT FOUND");
             }
-        } catch (Exception e) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+        } catch (IOException e) {
+            throw e;
         }
-    }
-
-    @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        processRequest(request, response);
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        processRequest(request, response);
-    }
-}
+    } 
