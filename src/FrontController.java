@@ -198,5 +198,4 @@ public class FrontController extends HttpServlet {
         } catch (IOException e) {
             throw e;
         }
-    }
-}
+    } 

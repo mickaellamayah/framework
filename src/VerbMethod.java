@@ -1,26 +1,27 @@
-package mg.tool;
+package util;
 
 public class VerbMethod {
+    String verb;
+    String methodName;
+    Class[] parameterTypes;
 
-    private String methodName;
-    private String verb;
-
-
-    public VerbMethod(){}
-    
-    public String getMethodName() {
-        return methodName;
+    public String getVerb(){
+        return this.verb;
+    }
+    public String getMethodName(){
+        return this.methodName;
+    }
+    public Class[] getParameterTypes(){
+        return this.parameterTypes;
     }
 
-    public void setMethodName(String methodName) {
-        this.methodName = methodName;
+    public void setVerb(String v){
+        this.verb = v;
     }
-
-    public String getVerb() {
-        return verb;
+    public void setMethodName(String m){
+        this.methodName = m;
     }
-
-    public void setVerb(String verb) {
-        this.verb = verb;
+    public void setParameterTypes(Class[] pm){
+        this.parameterTypes = pm;
     }
 }
