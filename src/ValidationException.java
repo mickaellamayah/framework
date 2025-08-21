@@ -1,19 +1,23 @@
 package mg.exception;
 
-public class ValidationException extends Exception {
-    private final String fieldName;
-    private final String message;
-    private final String fieldValue;  // Valeur du champ pour aider dans le débogage
+public class ValidationException extends RuntimeException {
+    private String fieldName;
+    private String message;
+    private Object fieldValue; 
 
-    public ValidationException(String fieldName, String message, String fieldValue) {
-        super(message);  // Appelle le constructeur de la classe parente Exception
+    public ValidationException(String fieldName, String message, Object fieldValue) {
+        super(message);
         this.fieldName = fieldName;
         this.message = message;
-        this.fieldValue = fieldValue;  // Initialisation de la valeur du champ
+        this.fieldValue = fieldValue;
     }
 
     public String getFieldName() {
         return fieldName;
+    }
+
+    public Object getFieldValue() {
+        return fieldValue;
     }
 
     @Override
@@ -21,13 +25,8 @@ public class ValidationException extends Exception {
         return message;
     }
 
-    public String getFieldValue() {
-        return fieldValue;  // Retourne la valeur du champ
-    }
-
     @Override
     public String toString() {
-        // Vous pouvez choisir d'ajouter la valeur du champ dans la méthode toString pour un meilleur affichage
-        return "ValidationException: [Champ: " + fieldName + ", Message: " + message + ", Valeur: " + fieldValue + "]";
+        return "Erreur dans le champ '" + fieldName + "' (valeur : " + fieldValue + "): " + message;
     }
 }
